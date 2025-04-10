@@ -1,9 +1,8 @@
 IDs = []
-tokens = []
 token = ('','',0) 
 line = 1
 counter = 0
-keywords = {'πρόγραμμα','δήλωση', 'εάν', 'τότε', 'αλλιώς', 'εάν_τέλος','επανάλαβε','μέχρι','όσο','όσο_τέλος','για','έως','με_βήμα',' για_τέλος','διάβασε','γράψε','συνάρτηση','διαδικασία','διαπροσωπεία',' είσοδος','έξοδος','αρχή_συνάρτησης','τέλος_συνάρτησης',' αρχή_διαδικασίας','τέλος_διαδικασίαs',' αρχή_προγράμματος',' τέλος_προγράμματος',' ή','και','εκτέλεσε'}
+keywords = {'πρόγραμμα','δήλωση', 'εάν', 'τότε', 'αλλιώς', 'εάν_τέλος','επανάλαβε','μέχρι','όσο','όσο_τέλος','για','έως','με_βήμα',' για_τέλος','διάβασε','γράψε','συνάρτηση','διαδικασία','διαπροσωπεία',' είσοδος','έξοδος','αρχή_συνάρτησης','τέλος_συνάρτησης',' αρχή_διαδικασίας','τέλος_διαδικασίαs',' αρχή_προγράμματος',' τέλος_προγράμματος',' ή','και','όχι','εκτέλεσε'}
 
 f = open('test.greek', 'r', encoding='utf-8')
 
@@ -64,42 +63,36 @@ def lexical_analyzer():
             elif(c=='%'):
                 lexeme+=c
                 token = (lexeme,'DECL_REF',line)
-                tokens.append((lexeme,'DECL_REF',line))
                 state = 9
 
             #sygkrish oxi anathesh
             elif(c=='='):
                 lexeme+=c
                 token = (lexeme,'LOGICAL',line)
-                tokens.append((lexeme,'LOGICAL',line))
                 state = 9
            
             #prosthesh afairesh
             elif(c in "+-"):
                 lexeme+=c
                 token = (lexeme,'ADD_OP',line)
-                tokens.append((lexeme,'ADD_OP',line))
                 state = 9
 
             #pollaplasiasmos diairesh
             elif(c in "*/"):
                 lexeme+=c
                 token = (lexeme,'MUL_OP',line)
-                tokens.append((lexeme,'MUL_OP',line))
                 state = 9
 
             #grouping
             elif(c in '()[]"'):
                 lexeme+=c
                 token = (lexeme,'GROUPING',line)
-                tokens.append((lexeme,'GROUPING',line))
                 state = 9
 
             #separator
             elif(c in ',;'):
                 lexeme+=c
                 token = (lexeme,'SEPERATOR',line)
-                tokens.append((lexeme,'SEPERATOR',line))
                 state = 9
         
         elif(state == 1):
@@ -112,10 +105,8 @@ def lexical_analyzer():
                     if(lexeme not in IDs):
                         IDs.append(lexeme)
                     token = (lexeme,'IDENTIFIER',line)
-                    tokens.append((lexeme,'IDENTIFIER',line))
                 elif(lexeme in keywords):
                     token = (lexeme,'KEYWORD',line)
-                    tokens.append((lexeme,'KEYWORD',line))
                 if(c == '\n'):
                     line+=1
                 state = 9
@@ -125,10 +116,8 @@ def lexical_analyzer():
                     if(lexeme not in IDs):
                         IDs.append(lexeme)
                     token = (lexeme,'IDENTIFIER',line)
-                    tokens.append((lexeme,'IDENTIFIER',line))
                 elif(lexeme in keywords):
                     token = (lexeme,'KEYWORD',line)
-                    tokens.append((lexeme,'KEYWORD',line))
 
                 f.seek(backtrack)
                 state = 9
@@ -148,7 +137,6 @@ def lexical_analyzer():
                     print("Error! Number out of range in line "+str(line))
                     exit()
                 token = (lexeme,'LITERAL_INT',line)
-                tokens.append((lexeme,'LITERAL_INT',line))
                 if(c=='\n'):
                     line+=1
                 state = 9
@@ -160,7 +148,6 @@ def lexical_analyzer():
                     print("Error! Number out of range in line "+str(line))
                     exit()
                 token = (lexeme,'LITERAL_INT',line)
-                tokens.append((lexeme,'LITERAL_INT',line))
                 f.seek(backtrack)
                 state = 9
 
@@ -168,11 +155,9 @@ def lexical_analyzer():
             if(c == '='):
                 lexeme+=c
                 token = (lexeme,'ASSIGNMENT',line)
-                tokens.append((lexeme,'ASSIGNMENT',line))
                 state = 9
             else:
                 token = (lexeme,'SEPERATOR',line)
-                tokens.append((lexeme,'SEPERATOR',line))
                 f.seek(f.tell()-1)
                 state = 9
 
@@ -180,22 +165,18 @@ def lexical_analyzer():
             if(c=='='):
                 lexeme+=c
                 token = (lexeme,'LOGICAL',line)
-                tokens.append((lexeme,'LOGICAL',line))
                 state = 9
             elif(c=='>'):
                 lexeme+=c
                 token = (lexeme,'LOGICAL',line)
-                tokens.append((lexeme,'LOGICAL',line))
                 state = 9
             elif(c.isspace()):
                 token = (lexeme,'LOGICAL',line)
-                tokens.append((lexeme,'LOGICAL',line))
                 if(c=='\n'):
                     line+=1
                 state = 9
             else:
                 token = (lexeme,'LOGICAL',line)
-                tokens.append((lexeme,'LOGICAL',line))
                 f.seek(f.tell()-1)
                 state = 9
         
@@ -203,22 +184,18 @@ def lexical_analyzer():
             if(c=='='):
                 lexeme+=c
                 token = (lexeme,'LOGICAL',line)
-                tokens.append((lexeme,'LOGICAL',line))
                 state = 9
             elif(c=='<'):
                 lexeme+=c
                 token = (lexeme,'LOGICAL',line)
-                tokens.append((lexeme,'LOGICAL',line))
                 state = 9
             elif(c.isspace()):
                 token = (lexeme,'LOGICAL',line)
-                tokens.append((lexeme,'LOGICAL',line))
                 if(c=='\n'):
                     line+=1
                 state = 9
             else:
                 token = (lexeme,'LOGICAL',line)
-                tokens.append((lexeme,'LOGICAL',line))
                 f.seek(f.tell()-1)
                 state = 9
 
