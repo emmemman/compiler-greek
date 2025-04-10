@@ -1,7 +1,13 @@
 IDs = []
 token = ('','',0) 
 line = 1
-counter = 0
+
+quadList = []
+tempList = []
+
+quadCounter = 1
+tempCounter = 0
+
 keywords = {'πρόγραμμα','δήλωση', 'εάν', 'τότε', 'αλλιώς', 'εάν_τέλος','επανάλαβε','μέχρι','όσο','όσο_τέλος','για','έως','με_βήμα',' για_τέλος','διάβασε','γράψε','συνάρτηση','διαδικασία','διαπροσωπεία',' είσοδος','έξοδος','αρχή_συνάρτησης','τέλος_συνάρτησης',' αρχή_διαδικασίας','τέλος_διαδικασίαs',' αρχή_προγράμματος',' τέλος_προγράμματος',' ή','και','όχι','εκτέλεσε'}
 
 f = open('test.greek', 'r', encoding='utf-8')
@@ -212,6 +218,72 @@ def lexical_analyzer():
 
     return token
 
+#####################
+# Intermediate Code #
+#####################
+
+def nextquad():
+    global quadCounter
+    return quadCounter
+
+def genquad(op,x,y,z):
+    global quadList, quadCounter
+    count = nextquad()
+
+    newquad = [count,op,x,y,z]
+    quadList.append(newquad)
+
+    quadCounter+=1
+    return newquad
+
+def newtemp():
+    global tempCounter
+    global tempList
+
+    temp = 'T_'
+    tempCounter +=1 
+    temp += str(tempCounter)
+
+    tempList += [temp]
+
+    return temp
+
+def emptyList():
+    emptyLst = []
+
+    return emptyLst
+
+def makeList(x):
+    makeLst = [x]
+
+    return makeLst
+
+def merge(list1,list2):
+    mergeLst = []
+    mergeLst += list1 + list2
+
+    return mergeLst
+
+def backpatch(lists,z):
+    global quadList
+
+    for i in range(len(lists)):
+        for j in range(len(quadList)):
+            if lists[i] == quadList[j][0] and quadList[j][4] == '_':
+                quadList[j][4] = z
+                break
+
+def intFile(file):
+    global quadList,buffer
+
+    buffer = ''
+    F = open(file + '.int','w', encoding='utf-8')
+    for i in range(len(quadList)):
+        buffer += str(quadList[i][0]) + ' ' + str(quadList[i][1]) + ' ' + str(quadList[i][2]) + ' ' + str(quadList[i][3]) + ' ' + str(quadList[i][4]) + '\n'
+
+    F.write(buffer + '\n')
+    F.close()
+
 #####################################
 ########   Syntax Analyzer  #########
 #####################################
@@ -225,8 +297,14 @@ def program():
     if(token[0] == 'πρόγραμμα'):
         token = lexical_analyzer()
         if(token[0] in IDs):
+
+            program_name = token[0]
+            genquad('begin_block', program_name,'_','_')
+
             token = lexical_analyzer()
             programblock()
+
+            genquad('end_block', program_name,'_','_')
         else:
             print('Error incorrect ID name for program at line: ',token[2])
             exit()
@@ -259,11 +337,14 @@ def declarations():
 
 def varlist():
     global token
+    varlst = []
     if(token[0] in IDs):
+        varlst.append(token[0])
         token = lexical_analyzer()
         while(token[0] == ','):
             token = lexical_analyzer()
             if(token[0] in IDs):
+                varlst.append(token[0])
                 token = lexical_analyzer()
             else:
                 print('Invalid ID name at line: ',token[2])
@@ -271,6 +352,8 @@ def varlist():
     else:
         print('Invalid ID name at line: ',token[2])
         exit()
+    
+    return varlst
 
 def subprograms():
     global token
@@ -285,13 +368,19 @@ def subprograms():
 def func():
     global token
     if(token[0] in IDs):
+
+        func_name = token[0]
+        genquad('begin_block', func_name,'_','_')
+
         token = lexical_analyzer()
+
         if(token[0] == '('):
             token = lexical_analyzer()
             formalparlist()
             if(token[0]==')'):
                 token = lexical_analyzer()
                 funcblock()
+                genquad('end_block', func_name,'_','_')
             else:
                 print('Error, expected ")" at line: ', token[2])
                 exit()
@@ -305,13 +394,21 @@ def func():
 def proc():
     global token
     if(token[0] in IDs):
+
+        proc_name = token[0]
+        genquad('begin_block', proc_name,'_','_')
+
         token = lexical_analyzer()
+
+        
+
         if(token[0] == '('):
             token = lexical_analyzer()
             formalparlist()
             if(token[0]==')'):
                 token = lexical_analyzer()
                 procblock()
+                genquad('end_block', proc_name,'_','_')
             else:
                 print('Error, expected ")" at line: ', token[2])
                 exit()
@@ -334,6 +431,7 @@ def funcblock():
         funcinput()
         funcoutput()
         declarations()
+        subprograms()
         if(token[0]=='αρχή_συνάρτησης'):
             token = lexical_analyzer()
             sequence()
@@ -356,6 +454,7 @@ def procblock():
         funcinput()
         funcoutput()
         declarations()
+        subprograms()
         if(token[0]=='αρχή_διαδικασίας'):
             token = lexical_analyzer()
             sequence()
@@ -375,13 +474,18 @@ def funcinput():
     global token
     if(token[0]=='είσοδος'):
         token = lexical_analyzer()
-        varlist()
+        varlst = varlist()
+        for v in varlst:
+            genquad('par', v, 'cv', '_')
+
     
 def funcoutput():
     global token
     if(token[0]=='έξοδος'):
         token = lexical_analyzer()
-        varlist()
+        varlst = varlist()
+        for v in varlst:
+            genquad('par', v, 'ref', '_')
 
 def sequence():
     global token
@@ -393,10 +497,8 @@ def sequence():
 def statement():
     global token
     if(token[0] in IDs):
-        token = lexical_analyzer()
         assignment_stat()
     elif(token[0]=='εάν'):
-        token = lexical_analyzer()
         if_stat()
     elif(token[0]=='όσο'):
         token = lexical_analyzer()
@@ -422,20 +524,38 @@ def statement():
 
 def assignment_stat():
     global token
+
+    target = token[0]
+    token = lexical_analyzer()
+
     if(token[0]==':='):
         token = lexical_analyzer()
-        expression()
+        E = expression()
+
+        genquad(':=', E,'_',target)
     else:
         print('Error expected ":=" at line: ',token[2])
         exit()
 
 def if_stat():
     global token
-    condition()
+
+    token = lexical_analyzer()
+    B = condition()
+
     if(token[0]=='τότε'):
         token = lexical_analyzer()
+        backpatch(B[0], nextquad())
         sequence()
+
+        iflst = makeList(nextquad())
+        genquad('jump','_','_','_')
+        backpatch(B[1],nextquad())
+
         elsepart()
+
+        backpatch(iflst,nextquad())
+
         if(token[0]=='εάν_τέλος'):
             token = lexical_analyzer()
         else:
@@ -453,10 +573,19 @@ def elsepart():
 
 def while_stat():
     global token
-    condition()
+
+    Bq = nextquad()
+    B = condition()
+
     if(token[0]=='επανάλαβε'):
         token = lexical_analyzer()
+        backpatch(B[0],nextquad())
+
         sequence()
+
+        genquad('jumpWHILE','_','_',Bq)
+        backpatch(B[1],nextquad())
+
         if(token[0]=='όσο_τέλος'):
             token = lexical_analyzer()
         else:
@@ -541,6 +670,8 @@ def idtail():
         token = lexical_analyzer()
         actualpars()
 
+        w = newtemp()
+
 def actualpars():
     global token
     actualparlist()
@@ -560,114 +691,237 @@ def actualparlist():
 
 def actualparitem():
     global token
+
     if(token[0]=='%'):
         token = lexical_analyzer()
         if(token[0] in IDs):
+
+            genquad('par', token[0], 'REF', '_')  
             token = lexical_analyzer()
         else:
             print('Error expected ID at line: ',token[2])
             exit()
     else:
-        expression()
+        E = expression()
+        genquad('par', E, 'CV', '_')
 
 def condition():
     global token
-    boolterm()
+
+    Q1 = boolterm()
+
+    conditionT = Q1[0]
+    conditionF = Q1[1]
+
     while(token[0]=='ή'):
+        backpatch(conditionF,nextquad())
         token = lexical_analyzer()
-        boolterm()
+
+        Q2 = boolterm()
+
+        conditionT = merge(conditionT,Q2[0])
+        conditionF = Q2[1]
+
+    return conditionT, conditionF
 
 def boolterm():
     global token
-    boolfactor()
+
+    R1 = boolfactor()
+    booltermT = R1[0]
+    booltermF = R1[1]
+
     while(token[0]=='και'):
+        backpatch(booltermF,nextquad())
+
         token = lexical_analyzer()
-        boolfactor()
+
+        R2 = boolfactor()
+
+        booltermT = R2[0]
+        booltermF = merge(booltermF,R2[1])
+
+    return booltermT,booltermF
 
 def boolfactor():
     global token
+
     if(token[0]=='όχι'):
         token = lexical_analyzer()
+
         if(token[0]=='['):
             token = lexical_analyzer()
-            condition()
+            B = condition()
+            boolfactorT = B[1]
+            boolfactorF = B[0]
+
             if(token[0]==']'):
                 token = lexical_analyzer()
+                return boolfactorF,boolfactorT
+            
             else:
                 print('Error expected "]" at line: ',token[2])
                 exit()
         else:
             print('Error expected "[" at line: ',token[2])
             exit()
+
     elif(token[0]=='['):
         token = lexical_analyzer()
-        condition()
+
+        B = condition()
+
+        boolfactorT = B[0]
+        boolfactorF = B[1]
+
         if(token[0]==']'):
                 token = lexical_analyzer()
+                return boolfactorT,boolfactorF
         else:
             print('Error expected "]" at line: ',token[2])
             exit()
     else:
-        expression()
-        relational_oper()
-        expression()
+        E1 = expression()
+        rel_op = relational_oper()
+        E2 = expression()
+
+        Rtrue = makeList(nextquad())
+        genquad(rel_op,E1,E2,'_')
+        Rfalse = makeList(nextquad())
+        genquad('jump','_','_','_')
+    
+    return Rtrue,Rfalse
 
 def expression():
     global token
-    optional_sign()
-    term()
+
+    op_s = optional_sign()
+    T1 = term()
+
+    if(op_s == '-'):
+        temp = newtemp()
+        genquad('-',0,T1,temp)
+        T1 = temp
+
     while(token[0] in '+-'):
-        token = lexical_analyzer()
-        term()
+        addOp = add_oper()
+        T2 = term()
+
+        w = newtemp()
+        genquad(addOp,T1,T2,w)
+        T1 = w
+    
+    return T1
 
 def term():
     global token
-    factor()
+
+    F1 = factor()
+
     while(token[0] in '*/'):
-        token = lexical_analyzer()
-        factor()
+        mulOp = mul_oper()
+        F2 = factor()
+
+        w = newtemp()
+        genquad(mulOp,F1,F2,w) 
+        F1 = w
+    
+    return F1
 
 def factor():
     global token
+
     if(token[0].isdigit()):
+        F = token[0]
         token = lexical_analyzer()
+        return F
+    
     elif(token[0] == '('):
         token = lexical_analyzer()
-        expression()
+        E = expression()
+
         if(token[0] == ')'):
             token = lexical_analyzer()
+            return E
+        
         else:
             print('Error expected ")" at line: ',token[2])
             exit()
+
     elif(token[0] in IDs):
+        temp = token[0]
         token = lexical_analyzer()
-        idtail()
+        F = idtail()
+        return F
+    
     else:
         print('Error , wrong factor type at line: ',token[2], 'with token:',token[0])
         exit()
 
 def relational_oper():
     global token
-    if(token[1] == 'LOGICAL'):
+
+    if token[0] == '=':
+        relop = token[0]
         token = lexical_analyzer()
+
+    elif token[0] == '<=':
+        relop = token[0]
+        token = lexical_analyzer()
+
+    elif token[0] ==  '>=':
+        relop = token[0]
+        token = lexical_analyzer()
+
+    elif token[0] == '>':
+        relop = token[0]
+        token = lexical_analyzer()
+
+    elif token[0] == '<':
+        relop = token[0]
+        token = lexical_analyzer()
+
+    elif token[0] == '<>':
+        relop = token[0]
+        token = lexical_analyzer()  
+
     else:
-        print("Error! Missing 'relational operator' in line ", token[2])
+        print("Error! Missing 'relational operator' in line "+token[1])
         exit()
+    
+    return relop
 
 def add_oper():
     global token
-    if(token[1] == 'ADD_OP'):
+
+    if(token[0] == '+'):
         token = lexical_analyzer()
+        return '+'
+    
+    elif(token[0] == '-'):
+        token = lexical_analyzer()
+        return '-'
 
 def mul_oper():
-    global tokens
-    if(token[1] == 'MUL_OP'):
+    global token
+
+    if(token[0] == '*'):
+        mulop = '*'
         token = lexical_analyzer()
+    
+    elif(token[0] == '/'):
+        mulop = '/'
+        token = lexical_analyzer()
+    
+    return mulop
 
 def optional_sign():
-    global tokens
+    global token
     add_oper()
 
 token = lexical_analyzer()
 
 startRule()
+
+intFile('test')
+print("Outputed .int file in dir, with name test.int \n")
