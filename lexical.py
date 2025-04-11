@@ -2,6 +2,8 @@ IDs = []
 token = ('','',0) 
 line = 1
 
+functions = []
+
 quadList = []
 tempList = []
 
@@ -304,6 +306,7 @@ def program():
             token = lexical_analyzer()
             programblock()
 
+            genquad('halt','_','_','_')
             genquad('end_block', program_name,'_','_')
         else:
             print('Error incorrect ID name for program at line: ',token[2])
@@ -367,9 +370,12 @@ def subprograms():
 
 def func():
     global token
+    global functions
+    
     if(token[0] in IDs):
 
         func_name = token[0]
+        functions.append(func_name)
         genquad('begin_block', func_name,'_','_')
 
         token = lexical_analyzer()
@@ -477,8 +483,7 @@ def funcinput():
         varlst = varlist()
         for v in varlst:
             genquad('par', v, 'cv', '_')
-
-    
+ 
 def funcoutput():
     global token
     if(token[0]=='έξοδος'):
@@ -583,7 +588,7 @@ def while_stat():
 
         sequence()
 
-        genquad('jumpWHILE','_','_',Bq)
+        genquad('jump','_','_',Bq)
         backpatch(B[1],nextquad())
 
         if(token[0]=='όσο_τέλος'):
@@ -597,28 +602,55 @@ def while_stat():
 
 def do_stat():
     global token
+
+    Bq = nextquad()
     sequence()
+
     if(token[0]=='μέχρι'):
         token = lexical_analyzer()
-        condition()
+        B = condition()
+
+        backpatch(B[1],Bq)
     else:
         print('Error expected "μέχρι" at line: ',token[2])
         exit()
 
 def for_stat():
     global token
+
     if(token[0] in IDs):
+        i = token[0]
         token = lexical_analyzer()
+
         if(token[0]==':='):
             token = lexical_analyzer()
-            expression()
+            start_val = expression()
+            genquad(':=', start_val, '_', i)
+
             if(token[0]=='έως'):
                 token = lexical_analyzer()
-                expression()
-                step()
+                end_val = expression()
+                step_val = step()
+
+                L1 = nextquad()
+                B = genquad('<=', i, end_val, '_')  # αν ισχυει συνεχιζει
+
                 if(token[0]=='επανάλαβε'):
+
+
                     token = lexical_analyzer()
                     sequence()
+
+                    #προσθετω step στο i
+                    temp = newtemp()
+                    genquad('+', i, step_val, temp)
+                    genquad(':=', temp, '_', i)
+
+                    #παω παλι στον ελεγχο
+                    genquad('jump', '_', '_', L1)
+
+                    backpatch(B,nextquad())
+
                     if(token[0]=='για_τέλος'):
                         token = lexical_analyzer()
                     else:
@@ -639,17 +671,23 @@ def for_stat():
 
 def step():
     global token
+
     if(token[0]=='με_βήμα'):
         token = lexical_analyzer()
-        expression()
+        E = expression()
+        return E
+    
+    return 1
 
 def print_stat():
     global token
-    expression()
+    E = expression()
+    genquad('out',E,'_','_')
 
 def input_stat():
     global token
     if(token[0] in IDs):
+        genquad('inp',token[0],'_','_')
         token = lexical_analyzer()
     else:
         print('Error expected ID at line: ',token[2])
@@ -658,19 +696,31 @@ def input_stat():
 def call_stat():
     global token
     if(token[0] in IDs):
+        temp = token[0]
         token = lexical_analyzer()
-        idtail()
+        idtail(temp)
     else:
         print('Error expected ID at line: ',token[2])
         exit()
 
-def idtail():
+def idtail(f_id):
     global token
+    global functions
+
     if(token[0] == '('):
         token = lexical_analyzer()
         actualpars()
 
         w = newtemp()
+
+        if f_id in functions:
+            genquad('par', w, 'RET', '_')
+
+        genquad('call', f_id, '_', '_')
+
+        return w
+    
+    return f_id
 
 def actualpars():
     global token
@@ -797,7 +847,6 @@ def expression():
 
     op_s = optional_sign()
     T1 = term()
-
     if(op_s == '-'):
         temp = newtemp()
         genquad('-',0,T1,temp)
@@ -825,7 +874,6 @@ def term():
         w = newtemp()
         genquad(mulOp,F1,F2,w) 
         F1 = w
-    
     return F1
 
 def factor():
@@ -851,7 +899,7 @@ def factor():
     elif(token[0] in IDs):
         temp = token[0]
         token = lexical_analyzer()
-        F = idtail()
+        F = idtail(temp)
         return F
     
     else:
