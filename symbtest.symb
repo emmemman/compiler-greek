@@ -1,0 +1,35 @@
+
+Scope 2
+  Procedure entity: τύπωσε_συν_1, starting quad: 0, length: 0
+  Parameter entity: χ, mode: in, offset: 12
+  Temporary variable entity: T_3, offset: 16
+
+Scope 1
+  Function entity: αύξηση, starting quad: 0, length: 0
+  Parameter entity: α, mode: in, offset: 12
+  Parameter entity: β, mode: inout, offset: 16
+  Temporary variable entity: T_1, offset: 20
+  Temporary variable entity: T_2, offset: 24
+
+Scope 0
+  Variable entity: α, offset: 12
+  Variable entity: β, offset: 16
+  Variable entity: γ, offset: 20
+
+
+Scope 0
+  Variable entity: α, offset: 12
+  Variable entity: β, offset: 16
+  Variable entity: γ, offset: 20
+  Temporary variable entity: T_4, offset: 24
+  Temporary variable entity: T_5, offset: 28
+  Temporary variable entity: T_6, offset: 32
+  Temporary variable entity: T_7, offset: 36
+  Temporary variable entity: T_8, offset: 40
+  Temporary variable entity: T_9, offset: 44
+  Temporary variable entity: T_10, offset: 48
+  Temporary variable entity: T_11, offset: 52
+  Temporary variable entity: T_12, offset: 56
+  Temporary variable entity: T_13, offset: 60
+  Temporary variable entity: T_14, offset: 64
+

@@ -1,8 +1,8 @@
 IDs = []
 token = ('','',0) 
 line = 1
-
-functions = []
+varIDs = []
+functionIDs = []
 
 quadList = []
 tempList = []
@@ -10,13 +10,16 @@ tempList = []
 quadCounter = 1
 tempCounter = 0
 
+scopes = []
+scope = []
+
 keywords = {'πρόγραμμα','δήλωση', 'εάν', 'τότε', 'αλλιώς', 'εάν_τέλος','επανάλαβε','μέχρι','όσο','όσο_τέλος','για','έως','με_βήμα',' για_τέλος','διάβασε','γράψε','συνάρτηση','διαδικασία','διαπροσωπεία',' είσοδος','έξοδος','αρχή_συνάρτησης','τέλος_συνάρτησης',' αρχή_διαδικασίας','τέλος_διαδικασίαs',' αρχή_προγράμματος',' τέλος_προγράμματος',' ή','και','όχι','εκτέλεσε'}
 
 f = open('test.greek', 'r', encoding='utf-8')
 
-#####################################
-########  Lexical Analyzer  #########
-#####################################
+######################
+#  Lexical Analyzer  #
+######################
 
 def lexical_analyzer():
     global line
@@ -220,9 +223,178 @@ def lexical_analyzer():
 
     return token
 
-#####################
-# Intermediate Code #
-#####################
+##################
+#  Symbol Table  #
+##################
+
+class Entity:
+
+    def __init__(self, id, state):
+        self.id = id
+        self.state = state
+        self.scope = -1
+
+    @classmethod
+
+    def Var(wrap, id, state, offset):
+
+        variable = wrap(id, state)
+        variable.offset = offset
+
+        return variable
+
+    @classmethod
+
+    def Sub(wrap, id, state):
+        
+        sub = wrap(id, state)
+        sub.squad = 0
+        sub.args = []
+        sub.length = 0
+
+        return sub
+
+    @classmethod
+
+    def Par(wrap, id, state, mode, offset):
+
+        parameter = wrap(id, state)
+        parameter.mode = mode
+        parameter.offset = offset
+
+        return parameter
+
+    @classmethod
+
+    def Temp(wrap, id, state, offset):
+
+        temp = wrap(id, state)
+        temp.offset = offset
+
+        return temp
+
+def newEntity(entity):
+
+    global scopes
+
+    if scopes:
+            print('evala afto '+str(entity.id))
+            scopes[-1][2].append(entity)
+
+def newScope(identifier):
+    global scopes
+    print('evala new scope '+str(identifier))
+
+    scopes.append([identifier,len(scopes),[]])
+        
+def remScope():
+
+    global scopes
+
+    if scopes: 
+        del scopes[-1]
+            
+def newArg(argument):
+
+    global scopes
+
+    if scopes:
+        if scopes[-1][2]:
+            print('evala afto ARGUMENT'+argument[0])
+            target = scopes[-1][2][-1]
+            print(target.id)
+            target.args.append(argument)
+
+def newParams():
+
+    global scopes
+
+    if len(scopes) > 1:
+        print('prwto if sto params me len'+str(len(scopes)))
+        what = scopes[-2][2][-1]
+        print(str(what.id))
+        if scopes[-2][2]:
+            print('mphka if')
+            for arg in scopes[-1][2][-1].args:
+                parameter = Entity.Par(arg[0], 'prm', arg[2], getOffset())
+                print('evala afto PARAMETER'+parameter.id)
+                newEntity(parameter)
+        
+def getOffset():
+
+    global scopes
+
+    offset = 12
+
+    if scopes:
+        if scopes[-1][2]:
+            for ent in scopes[-1][2]: 
+                if ent.state == 'var' or ent.state == 'tmp' or ent.state == 'prm':
+                    offset += 4
+
+        return offset
+
+def getLength():
+
+    global scopes
+
+    if len(scopes) > 1:
+        if scopes[-2][2]:
+            scopes[-2][2][-1].length = getOffset()
+
+def getSQuad():
+
+    global scopes
+
+    if len(scopes) > 1:
+        if scopes[-2][2]:
+            scopes[-2][2][-1].squad = nextquad()
+
+def outputSymbFile(file):
+
+    global scopes, buffer
+
+    buffer = ''
+    F = open(file + '.symb', 'a', encoding='utf-8')
+    for scope in reversed(scopes):
+        buffer += '\nScope ' + str(scope[1]) +'\n'
+   
+        for ent in scope[2]:
+                
+            if ent.state == 'var':
+                buffer += '  Variable entity: ' + ent.id +', offset: ' + str(ent.offset) + '\n'
+
+            elif ent.state == 'tmp':
+                buffer += '  Temporary variable entity: ' + ent.id +', offset: ' + str(ent.offset) + '\n'
+
+            elif ent.state == 'prm':
+                buffer += '  Parameter entity: ' + ent.id + ', mode: ' + str(ent.mode) + ', offset: ' + str(ent.offset) + '\n'
+
+            elif ent.state == 'func':
+                buffer += '  Function entity: ' + ent.id + ', starting quad: ' + str(ent.squad) + ', length: ' + str(ent.length) + '\n'
+
+            elif ent.state == 'proc':
+                buffer += '  Procedure entity: ' + ent.id + ', starting quad: ' + str(ent.squad) + ', length: ' + str(ent.length) + '\n'
+
+    F.write(buffer + '\n')
+    F.close()
+
+def search_id(id):
+
+    global scopes
+
+    if scopes:
+
+        for scope in scopes[::-1]:
+
+            for ent in scope[2]:
+                if ent.id == id:
+                    ent.scope = scope
+                    return ent
+
+#######################
+#  Intermediate Code  #
+#######################
 
 def nextquad():
     global quadCounter
@@ -247,6 +419,9 @@ def newtemp():
     temp += str(tempCounter)
 
     tempList += [temp]
+
+    ent = Entity.Temp(temp, 'tmp', getOffset())
+    newEntity(ent)
 
     return temp
 
@@ -303,6 +478,8 @@ def program():
             program_name = token[0]
             genquad('begin_block', program_name,'_','_')
 
+            newScope(program_name)
+
             token = lexical_analyzer()
             programblock()
 
@@ -317,10 +494,17 @@ def program():
 
 def programblock():
     global token
+    global scopes
     declarations()
     subprograms()
     if(token[0] == 'αρχή_προγράμματος'):
         token = lexical_analyzer()
+
+        outputSymbFile('symbtest')
+        
+        while(len(scopes)>=2):
+            remScope()
+
         sequence()
         if(token[0] == 'τέλος_προγράμματος'):
             token = lexical_analyzer()
@@ -336,18 +520,34 @@ def declarations():
     global token
     while(token[0]=='δήλωση'):
         token = lexical_analyzer()
-        varlist()
+        varlist(False)
 
-def varlist():
+def varlist(isArgs):
     global token
     varlst = []
+
     if(token[0] in IDs):
+ 
         varlst.append(token[0])
+        
+        if(not isArgs):
+            ent = Entity.Var(token[0], 'var',getOffset())
+            newEntity(ent)
+
         token = lexical_analyzer()
+
         while(token[0] == ','):
+
             token = lexical_analyzer()
+
             if(token[0] in IDs):
+
                 varlst.append(token[0])
+
+                if(not isArgs):
+                    ent = Entity.Var(token[0], 'var',getOffset())
+                    newEntity(ent)
+
                 token = lexical_analyzer()
             else:
                 print('Invalid ID name at line: ',token[2])
@@ -370,15 +570,22 @@ def subprograms():
 
 def func():
     global token
-    global functions
+    global functionIDs
     
     if(token[0] in IDs):
 
         func_name = token[0]
-        functions.append(func_name)
+        functionIDs.append(func_name)
+
         genquad('begin_block', func_name,'_','_')
 
+        newScope(func_name)
+
+        ent = Entity.Sub(func_name, 'func')
+        newEntity(ent)
+
         token = lexical_analyzer()
+        
 
         if(token[0] == '('):
             token = lexical_analyzer()
@@ -404,6 +611,11 @@ def proc():
         proc_name = token[0]
         genquad('begin_block', proc_name,'_','_')
 
+        newScope(proc_name)
+        
+        ent = Entity.Sub(proc_name, 'proc')
+        newEntity(ent)
+
         token = lexical_analyzer()
 
         
@@ -428,15 +640,19 @@ def proc():
 def formalparlist():
     global token
     if(token[0]!=')'):
-        varlist()
+        varlist(True)
 
 def funcblock():
     global token
+    
     if(token[0]=='διαπροσωπεία'):
         token = lexical_analyzer()
         funcinput()
         funcoutput()
         declarations()
+
+        newParams()
+
         subprograms()
         if(token[0]=='αρχή_συνάρτησης'):
             token = lexical_analyzer()
@@ -460,6 +676,9 @@ def procblock():
         funcinput()
         funcoutput()
         declarations()
+
+        newParams()
+
         subprograms()
         if(token[0]=='αρχή_διαδικασίας'):
             token = lexical_analyzer()
@@ -480,16 +699,22 @@ def funcinput():
     global token
     if(token[0]=='είσοδος'):
         token = lexical_analyzer()
-        varlst = varlist()
+        varlst = varlist(True)
         for v in varlst:
+            arg = [v,'cv','in']
+            newArg(arg)
+
             genquad('par', v, 'cv', '_')
  
 def funcoutput():
     global token
     if(token[0]=='έξοδος'):
         token = lexical_analyzer()
-        varlst = varlist()
+        varlst = varlist(True)
         for v in varlst:
+            arg = [v,'ref','inout']
+            newArg(arg)
+
             genquad('par', v, 'ref', '_')
 
 def sequence():
@@ -705,7 +930,7 @@ def call_stat():
 
 def idtail(f_id):
     global token
-    global functions
+    global functionIDs
 
     if(token[0] == '('):
         token = lexical_analyzer()
@@ -713,7 +938,7 @@ def idtail(f_id):
 
         w = newtemp()
 
-        if f_id in functions:
+        if f_id in functionIDs:
             genquad('par', w, 'RET', '_')
 
         genquad('call', f_id, '_', '_')
@@ -748,6 +973,7 @@ def actualparitem():
 
             genquad('par', token[0], 'REF', '_')  
             token = lexical_analyzer()
+
         else:
             print('Error expected ID at line: ',token[2])
             exit()
@@ -969,7 +1195,17 @@ def optional_sign():
 
 token = lexical_analyzer()
 
+
 startRule()
+
+outputSymbFile('symbtest')
+print("Outputed .symb file in dir, with name symbtest.symb \n")
+for s in scopes:
+    print('YO '+ s[0]+str(s[1]))
+    for wh in s[2]:
+        print('YOYO'+wh.id)
+
+remScope()
 
 intFile('test')
 print("Outputed .int file in dir, with name test.int \n")
